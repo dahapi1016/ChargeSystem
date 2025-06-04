@@ -1,6 +1,6 @@
 package com.hapi.chargingsystem.config;
 
-import com.hapi.chargingsystem.common.components.JwtAuthenticationEntryPoint;
+import com.hapi.chargingsystem.components.JwtAuthenticationEntryPoint;
 import com.hapi.chargingsystem.common.filter.JwtRequestFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,7 +18,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity // 替代了@EnableGlobalMethodSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;

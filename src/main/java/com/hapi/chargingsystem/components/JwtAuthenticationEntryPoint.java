@@ -1,4 +1,4 @@
-package com.hapi.chargingsystem.common.components;
+package com.hapi.chargingsystem.components;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
