@@ -20,4 +20,6 @@ public interface UserService extends IService<User> {
      * @return 如果存在返回true，否则返回false
      */
     boolean existsByUsername(String username);
+
+    Long getUserIdByUsername(String username);
 }

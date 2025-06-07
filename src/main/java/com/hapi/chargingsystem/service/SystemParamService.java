@@ -37,4 +37,8 @@ public interface SystemParamService {
      * @return 慢充功率
      */
     double getTrickleChargingPower();
+
+    public int getIntParam(String key, int defaultValue);
+
+    public double getDoubleParam(String key, double defaultValue);
 }

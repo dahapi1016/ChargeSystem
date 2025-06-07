@@ -49,7 +49,7 @@ public class SystemParamServiceImpl implements SystemParamService {
         return getDoubleParam("TrickleChargingPower", 7.0);
     }
 
-    private int getIntParam(String key, int defaultValue) {
+    public int getIntParam(String key, int defaultValue) {
         SystemParam param = systemParamMapper.selectByKey(key);
         if (param == null) {
             return defaultValue;
@@ -61,7 +61,7 @@ public class SystemParamServiceImpl implements SystemParamService {
         }
     }
 
-    private double getDoubleParam(String key, double defaultValue) {
+    public double getDoubleParam(String key, double defaultValue) {
         SystemParam param = systemParamMapper.selectByKey(key);
         if (param == null) {
             return defaultValue;

@@ -23,4 +23,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         queryWrapper.eq("username", username);
         return this.count(queryWrapper) > 0;
     }
+
+    @Override
+    public Long getUserIdByUsername(String username) {
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("username", username);
+        User user = this.getOne(queryWrapper);
+        return user != null ? user.getId() : null;
+    }
 }
