@@ -170,18 +170,35 @@ public class BillingServiceImpl implements BillingService {
             result[1] = startType == PriceType.FLAT ? totalAmount : BigDecimal.ZERO;
             result[2] = startType == PriceType.VALLEY ? totalAmount : BigDecimal.ZERO;
         } else {
-            // 跨时段充电，按时长比例分配
+            // 跨时段充电，精确统计各时段分钟数，按比例分配电量
             long totalMinutes = Duration.between(startTime, endTime).toMinutes();
 
-            // 假设平均分配到每个时段
-            // 实际应用中，这部分应该根据具体的时间段计算更精确的分配比例
-            BigDecimal peakRatio = BigDecimal.valueOf(0.4);  // 假设40%时间在峰时
-            BigDecimal flatRatio = BigDecimal.valueOf(0.4);  // 假设40%时间在平时
-            BigDecimal valleyRatio = BigDecimal.valueOf(0.2);  // 假设20%时间在谷时
+            int peakMinutes = 0;
+            int flatMinutes = 0;
+            int valleyMinutes = 0;
 
-            result[0] = totalAmount.multiply(peakRatio).setScale(2, RoundingMode.HALF_UP);
-            result[1] = totalAmount.multiply(flatRatio).setScale(2, RoundingMode.HALF_UP);
-            result[2] = totalAmount.multiply(valleyRatio).setScale(2, RoundingMode.HALF_UP);
+            LocalDateTime current = startTime;
+            while (current.isBefore(endTime)) {
+                PriceType type = TimeSlot.getPriceType(current.toLocalTime());
+                if (type == PriceType.PEAK) {
+                    peakMinutes++;
+                } else if (type == PriceType.FLAT) {
+                    flatMinutes++;
+                } else {
+                    valleyMinutes++;
+                }
+                current = current.plusMinutes(1);
+            }
+
+            result[0] = totalMinutes == 0 ? BigDecimal.ZERO :
+                    totalAmount.multiply(BigDecimal.valueOf(peakMinutes))
+                            .divide(BigDecimal.valueOf(totalMinutes), 2, RoundingMode.HALF_UP);
+            result[1] = totalMinutes == 0 ? BigDecimal.ZERO :
+                    totalAmount.multiply(BigDecimal.valueOf(flatMinutes))
+                            .divide(BigDecimal.valueOf(totalMinutes), 2, RoundingMode.HALF_UP);
+            result[2] = totalMinutes == 0 ? BigDecimal.ZERO :
+                    totalAmount.multiply(BigDecimal.valueOf(valleyMinutes))
+                            .divide(BigDecimal.valueOf(totalMinutes), 2, RoundingMode.HALF_UP);
         }
 
         return result;
