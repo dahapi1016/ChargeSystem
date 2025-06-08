@@ -1,6 +1,7 @@
 package com.hapi.chargingsystem.controller;
 
 import com.hapi.chargingsystem.common.enums.UserRole;
+import com.hapi.chargingsystem.common.http.Result;
 import com.hapi.chargingsystem.common.utils.JwtTokenUtil;
 import com.hapi.chargingsystem.domain.User;
 import com.hapi.chargingsystem.dto.UserDTO;
@@ -12,16 +13,13 @@ import com.hapi.chargingsystem.service.impl.CustomUserDetailsService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.BeanUtils;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
-
-import java.security.Principal;
 
 /**
  * 用户鉴权相关
@@ -44,10 +42,10 @@ public class UserController {
      * @return 注册结果
      */
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody @Valid RegisterReqDTO registerRequest) {
+    public Result<String> register(@RequestBody @Valid RegisterReqDTO registerRequest) {
         // 检查用户名是否已存在
         if (userService.existsByUsername(registerRequest.getUsername())) {
-            return ResponseEntity.badRequest().body("用户名已存在");
+            return Result.error(400, "用户名已存在");
         }
 
         // 创建新用户
@@ -61,7 +59,7 @@ public class UserController {
 
         userService.save(user);
 
-        return ResponseEntity.ok("注册成功");
+        return Result.success("注册成功");
     }
 
     /**
@@ -70,7 +68,7 @@ public class UserController {
      * @return 登录结果
      */
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody @Valid LoginReqDTO loginRequest) {
+    public Result<LoginRespDTO> login(@RequestBody @Valid LoginReqDTO loginRequest) {
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
@@ -79,7 +77,7 @@ public class UserController {
                     )
             );
         } catch (BadCredentialsException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("用户名或密码错误");
+            return Result.error(401, "用户名或密码错误");
         }
 
         final UserDetails userDetails = userDetailsService.loadUserByUsername(loginRequest.getUsername());
@@ -94,19 +92,19 @@ public class UserController {
         response.setToken(token);
         response.setUserInfo(userDTO);
 
-        return ResponseEntity.ok(response);
+        return Result.success(response);
     }
 
     /**
      * 获取用户信息
-     * @param principal ?
+     * @param userDetails 当前用户
      * @return 用户信息
      */
     @GetMapping("/info")
-    public ResponseEntity<?> getUserInfo(Principal principal) {
-        User user = userService.getByUsername(principal.getName());
+    public Result<UserDTO> getUserInfo(@AuthenticationPrincipal UserDetails userDetails) {
+        User user = userService.getByUsername(userDetails.getUsername());
         UserDTO userDTO = new UserDTO();
         BeanUtils.copyProperties(user, userDTO);
-        return ResponseEntity.ok(userDTO);
+        return Result.success(userDTO);
     }
 }

@@ -26,6 +26,7 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class ChargingServiceImpl implements ChargingService {
@@ -197,7 +198,7 @@ public class ChargingServiceImpl implements ChargingService {
         vo.setPileId(pile.getId());
         vo.setPileCode(pile.getPileCode());
         vo.setChargingMode(request.getChargingMode());
-        vo.setChargingModeDesc(ChargingMode.getByCode(request.getChargingMode()).getDescription());
+        vo.setChargingModeDesc(Objects.requireNonNull(ChargingMode.getByCode(request.getChargingMode())).getDescription());
         vo.setRequestAmount(request.getRequestAmount());
         vo.setCurrentAmount(currentAmount);
         vo.setChargingDuration(chargingDuration);
@@ -210,7 +211,7 @@ public class ChargingServiceImpl implements ChargingService {
     }
 
     @Override
-    @Scheduled(fixedRate = 60000)  // 每分钟检查一次
+    @Scheduled(fixedRate = 5000)  // 每5秒检查一次
     public void checkChargingCompletion() {
         // 获取所有正在充电的请求
         List<ChargingRequest> chargingRequests = requestMapper.selectList(

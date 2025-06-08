@@ -13,7 +13,7 @@ import java.util.List;
 public interface ChargingRequestMapper extends BaseMapper<ChargingRequest> {
 
     @Select("SELECT MAX(SUBSTRING(queue_number, 2)) AS max_number FROM charging_request " +
-            "WHERE charging_mode = #{chargingMode} AND queue_number LIKE #{prefix}%")
+            "WHERE charging_mode = #{chargingMode} AND queue_number LIKE #{prefix}")
     Integer getMaxQueueNumber(@Param("chargingMode") Integer chargingMode, @Param("prefix") String prefix);
 
     @Select("SELECT COUNT(*) FROM charging_request " +

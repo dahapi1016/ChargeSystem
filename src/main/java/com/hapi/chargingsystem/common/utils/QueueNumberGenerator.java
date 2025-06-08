@@ -23,7 +23,7 @@ public class QueueNumberGenerator {
         }
 
         String prefix = mode.getPrefix();
-        Integer maxNumber = chargingRequestMapper.getMaxQueueNumber(chargingMode, prefix);
+        Integer maxNumber = chargingRequestMapper.getMaxQueueNumber(chargingMode, prefix + "%");
 
         int nextNumber = (maxNumber == null) ? 1 : maxNumber + 1;
         return prefix + nextNumber;
