@@ -15,5 +15,5 @@ spring:
     name: ChargingSystem
 
 jwt:
-  secret: chargingStationSecretKey
+  secret: chargingStationSecretKey12345678901234567890123456789012345678901234567890
   expiration: 864000  # 十天，单位秒

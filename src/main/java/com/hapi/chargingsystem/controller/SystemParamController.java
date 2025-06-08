@@ -16,6 +16,9 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * 系统参数控制相关
+ */
 @RestController
 @RequestMapping("/api/admin/param")
 @PreAuthorize("hasRole('ADMIN')")

@@ -23,6 +23,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 
+/**
+ * 用户鉴权相关
+ */
 @AllArgsConstructor
 @RestController
 @RequestMapping("/api/user")

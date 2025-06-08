@@ -11,6 +11,9 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * 报表生成相关
+ */
 @RestController
 @RequestMapping("/api/admin/report")
 @PreAuthorize("hasRole('ADMIN')")
