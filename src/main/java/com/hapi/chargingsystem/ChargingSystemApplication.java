@@ -6,6 +6,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableScheduling
+//@MapperScan("com.hapi.chargingsystem.mapper")
 public class ChargingSystemApplication {
 
     public static void main(String[] args) {
