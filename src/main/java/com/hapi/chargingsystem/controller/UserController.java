@@ -63,6 +63,66 @@ public class UserController {
     }
 
     /**
+     * 管理员账号注册
+     * @param registerRequest 注册信息表单
+     * @param userDetails 当前登录的用户信息
+     * @return 注册结果
+     */
+    @PostMapping("/register/admin")
+    public Result<String> registerAdmin(@RequestBody @Valid RegisterReqDTO registerRequest,
+                                       @AuthenticationPrincipal UserDetails userDetails) {
+        // 检查当前用户是否为管理员
+        User currentUser = userService.getByUsername(userDetails.getUsername());
+        if (currentUser == null || !UserRole.ADMIN.name().equals(currentUser.getRole())) {
+            return Result.error(403, "权限不足，只有管理员才能创建管理员账号");
+        }
+
+        // 检查用户名是否已存在
+        if (userService.existsByUsername(registerRequest.getUsername())) {
+            return Result.error(400, "用户名已存在");
+        }
+
+        // 创建新管理员用户
+        User user = new User();
+        user.setUsername(registerRequest.getUsername());
+        user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
+        user.setRole(UserRole.ADMIN.name());  // 设置为管理员角色
+        user.setStatus(1);
+        user.setCreateTime(java.time.LocalDateTime.now());
+        user.setUpdateTime(java.time.LocalDateTime.now());
+
+        userService.save(user);
+
+        return Result.success("管理员账号创建成功");
+    }
+
+    /**
+     * 初始化管理员账号注册（无需权限验证）
+     * @param registerRequest 注册信息表单
+     * @return 注册结果
+     */
+    @PostMapping("/init-admin")
+    public Result<String> initAdmin(@RequestBody @Valid RegisterReqDTO registerRequest) {
+        // 检查用户名是否已存在
+        if (userService.existsByUsername(registerRequest.getUsername())) {
+            return Result.error(400, "用户名已存在");
+        }
+
+        // 创建管理员用户
+        User user = new User();
+        user.setUsername(registerRequest.getUsername());
+        user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
+        user.setRole(UserRole.ADMIN.name());  // 设置为管理员角色
+        user.setStatus(1);
+        user.setCreateTime(java.time.LocalDateTime.now());
+        user.setUpdateTime(java.time.LocalDateTime.now());
+
+        userService.save(user);
+
+        return Result.success("管理员账号初始化成功");
+    }
+
+    /**
      * 用户登录
      * @param loginRequest 登录请求表单
      * @return 登录结果

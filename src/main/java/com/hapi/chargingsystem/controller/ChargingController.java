@@ -45,7 +45,7 @@ public class ChargingController {
     /**
      * 修改充电请求
      */
-    @PutMapping("/request/{requestId}")
+    @PostMapping("/request/change/{requestId}")
     public Result<ChargeRespDTO> updateRequest(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long requestId,
@@ -58,7 +58,7 @@ public class ChargingController {
     /**
      * 取消充电请求
      */
-    @DeleteMapping("/request/{requestId}")
+    @PostMapping("/request/cancel/{requestId}")
     public Result<Boolean> cancelRequest(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long requestId) {
