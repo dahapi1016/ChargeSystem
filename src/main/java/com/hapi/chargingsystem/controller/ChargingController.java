@@ -45,25 +45,23 @@ public class ChargingController {
     /**
      * 修改充电请求
      */
-    @PostMapping("/request/change/{requestId}")
+    @PostMapping("/request/change")
     public Result<ChargeRespDTO> updateRequest(
             @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Long requestId,
             @RequestBody @Valid ChargeReqDTO updateDTO) {
         Long userId = userService.getUserIdByUsername(userDetails.getUsername());
-        ChargeRespDTO response = chargingRequestService.updateRequest(userId, requestId, updateDTO);
+        ChargeRespDTO response = chargingRequestService.updateRequest(userId, updateDTO);
         return Result.success(response);
     }
 
     /**
      * 取消充电请求
      */
-    @PostMapping("/request/cancel/{requestId}")
+    @PostMapping("/request/cancel")
     public Result<Boolean> cancelRequest(
-            @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Long requestId) {
+            @AuthenticationPrincipal UserDetails userDetails) {
         Long userId = userService.getUserIdByUsername(userDetails.getUsername());
-        boolean success = chargingRequestService.cancelRequest(userId, requestId);
+        boolean success = chargingRequestService.cancelRequest(userId);
         return Result.success(success);
     }
 
@@ -90,12 +88,11 @@ public class ChargingController {
     /**
      * 结束充电
      */
-    @PostMapping("/end/{requestId}")
+    @PostMapping("/end")
     public Result<Boolean> endCharging(
-            @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Long requestId) {
+            @AuthenticationPrincipal UserDetails userDetails) {
         Long userId = userService.getUserIdByUsername(userDetails.getUsername());
-        boolean success = chargingRequestService.endCharging(userId, requestId);
+        boolean success = chargingRequestService.endCharging(userId);
         return Result.success(success);
     }
 

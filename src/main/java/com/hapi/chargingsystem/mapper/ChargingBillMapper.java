@@ -1,6 +1,8 @@
 package com.hapi.chargingsystem.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hapi.chargingsystem.domain.ChargingBill;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -13,6 +15,9 @@ public interface ChargingBillMapper extends BaseMapper<ChargingBill> {
 
     @Select("SELECT * FROM charging_bill WHERE user_id = #{userId} ORDER BY create_time DESC")
     List<ChargingBill> findByUserId(@Param("userId") Long userId);
+
+    @Select("SELECT * FROM charging_bill WHERE user_id = #{userId} ORDER BY create_time DESC")
+    IPage<ChargingBill> findByUserIdWithPage(Page<ChargingBill> page, @Param("userId") Long userId);
 
     @Select("SELECT * FROM charging_bill WHERE request_id = #{requestId}")
     ChargingBill findByRequestId(@Param("requestId") Long requestId);

@@ -79,11 +79,11 @@ public class ChargingRequestServiceImpl extends ServiceImpl<ChargingRequestMappe
 
     @Override
     @Transactional
-    public ChargeRespDTO updateRequest(Long userId, Long requestId, ChargeReqDTO updateDTO) {
-        // 获取请求
-        ChargingRequest request = chargingRequestMapper.selectById(requestId);
-        if (request == null || !request.getUserId().equals(userId)) {
-            throw new BusinessException("充电请求不存在");
+    public ChargeRespDTO updateRequest(Long userId, ChargeReqDTO updateDTO) {
+        // 获取用户当前活动的请求
+        ChargingRequest request = getActiveRequest(userId);
+        if (request == null) {
+            throw new BusinessException("您当前没有充电请求");
         }
 
         // 检查请求状态
@@ -123,11 +123,11 @@ public class ChargingRequestServiceImpl extends ServiceImpl<ChargingRequestMappe
 
     @Override
     @Transactional
-    public boolean cancelRequest(Long userId, Long requestId) {
-        // 获取请求
-        ChargingRequest request = chargingRequestMapper.selectById(requestId);
-        if (request == null || !request.getUserId().equals(userId)) {
-            throw new BusinessException("充电请求不存在");
+    public boolean cancelRequest(Long userId) {
+        // 获取用户当前活动的请求
+        ChargingRequest request = getActiveRequest(userId);
+        if (request == null) {
+            throw new BusinessException("您当前没有充电请求");
         }
 
         // 检查请求状态
@@ -138,7 +138,7 @@ public class ChargingRequestServiceImpl extends ServiceImpl<ChargingRequestMappe
 
         // 更新状态为已取消
         LambdaUpdateWrapper<ChargingRequest> updateWrapper = new LambdaUpdateWrapper<>();
-        updateWrapper.eq(ChargingRequest::getId, requestId)
+        updateWrapper.eq(ChargingRequest::getId, request.getId())
                 .set(ChargingRequest::getStatus, RequestStatus.CANCELLED.getCode())
                 .set(ChargingRequest::getUpdateTime, LocalDateTime.now());
 
@@ -202,11 +202,11 @@ public class ChargingRequestServiceImpl extends ServiceImpl<ChargingRequestMappe
 
     @Override
     @Transactional
-    public boolean endCharging(Long userId, Long requestId) {
-        // 获取请求
-        ChargingRequest request = chargingRequestMapper.selectById(requestId);
-        if (request == null || !request.getUserId().equals(userId)) {
-            throw new BusinessException("充电请求不存在");
+    public boolean endCharging(Long userId) {
+        // 获取用户当前活动的请求
+        ChargingRequest request = getActiveRequest(userId);
+        if (request == null) {
+            throw new BusinessException("您当前没有充电请求");
         }
 
         // 检查请求状态
@@ -217,7 +217,7 @@ public class ChargingRequestServiceImpl extends ServiceImpl<ChargingRequestMappe
         // 更新状态为已完成
         LocalDateTime now = LocalDateTime.now();
         LambdaUpdateWrapper<ChargingRequest> updateWrapper = new LambdaUpdateWrapper<>();
-        updateWrapper.eq(ChargingRequest::getId, requestId)
+        updateWrapper.eq(ChargingRequest::getId, request.getId())
                 .set(ChargingRequest::getStatus, RequestStatus.COMPLETED.getCode())
                 .set(ChargingRequest::getChargingEndTime, now)
                 .set(ChargingRequest::getUpdateTime, now);

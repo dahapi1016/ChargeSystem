@@ -30,6 +30,15 @@ public class JwtRequestFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
 
+        // 获取请求路径
+        String path = request.getRequestURI();
+
+        // 对于公开接口，直接放行
+        if (path.equals("/api/user/login") || path.equals("/api/user/register") || path.equals("/api/user/init-admin")) {
+            chain.doFilter(request, response);
+            return;
+        }
+
         final String requestTokenHeader = request.getHeader("Authorization");
 
         String username = null;

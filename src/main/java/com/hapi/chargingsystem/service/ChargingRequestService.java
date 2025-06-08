@@ -18,19 +18,17 @@ public interface ChargingRequestService extends IService<ChargingRequest> {
     /**
      * 修改充电请求
      * @param userId 用户ID
-     * @param requestId 请求ID
      * @param updateDTO 修改DTO
      * @return 充电请求VO
      */
-    ChargeRespDTO updateRequest(Long userId, Long requestId, ChargeReqDTO updateDTO);
+    ChargeRespDTO updateRequest(Long userId, ChargeReqDTO updateDTO);
 
     /**
      * 取消充电请求
      * @param userId 用户ID
-     * @param requestId 请求ID
      * @return 是否成功
      */
-    boolean cancelRequest(Long userId, Long requestId);
+    boolean cancelRequest(Long userId);
 
     /**
      * 获取用户当前充电请求
@@ -49,8 +47,7 @@ public interface ChargingRequestService extends IService<ChargingRequest> {
     /**
      * 结束充电
      * @param userId 用户ID
-     * @param requestId 请求ID
      * @return 是否成功
      */
-    boolean endCharging(Long userId, Long requestId);
+    boolean endCharging(Long userId);
 }

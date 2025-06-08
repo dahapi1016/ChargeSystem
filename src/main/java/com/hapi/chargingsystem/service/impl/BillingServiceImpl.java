@@ -1,8 +1,11 @@
 package com.hapi.chargingsystem.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hapi.chargingsystem.common.enums.PriceType;
 import com.hapi.chargingsystem.common.enums.TimeSlot;
 import com.hapi.chargingsystem.common.exception.BusinessException;
+import com.hapi.chargingsystem.common.http.PageResult;
 import com.hapi.chargingsystem.domain.ChargingBill;
 import com.hapi.chargingsystem.domain.ChargingPile;
 import com.hapi.chargingsystem.domain.ChargingRequest;
@@ -241,6 +244,18 @@ public class BillingServiceImpl implements BillingService {
             throw new BusinessException("充电详单不存在");
         }
         return convertToVO(bill);
+    }
+
+    @Override
+    public PageResult<ChargingBillVO> getUserBillsWithPage(Long userId, long current, long size) {
+        Page<ChargingBill> page = new Page<>(current, size);
+        IPage<ChargingBill> billPage = billMapper.findByUserIdWithPage(page, userId);
+
+        List<ChargingBillVO> billVOs = billPage.getRecords().stream()
+                .map(this::convertToVO)
+                .collect(Collectors.toList());
+
+        return PageResult.of(billVOs, billPage.getTotal(), billPage.getSize(), billPage.getCurrent());
     }
 
     /**

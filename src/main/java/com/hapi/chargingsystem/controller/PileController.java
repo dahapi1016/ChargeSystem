@@ -5,6 +5,7 @@ import com.hapi.chargingsystem.domain.ChargingPile;
 import com.hapi.chargingsystem.domain.ChargingRequest;
 import com.hapi.chargingsystem.domain.PileQueue;
 import com.hapi.chargingsystem.domain.User;
+import com.hapi.chargingsystem.dto.req.PileStatusUpdateDTO;
 import com.hapi.chargingsystem.dto.resp.ChargingPileVO;
 import com.hapi.chargingsystem.dto.resp.PileQueueItemVO;
 import com.hapi.chargingsystem.mapper.ChargingPileMapper;
@@ -12,6 +13,7 @@ import com.hapi.chargingsystem.mapper.ChargingRequestMapper;
 import com.hapi.chargingsystem.mapper.PileQueueMapper;
 import com.hapi.chargingsystem.mapper.UserMapper;
 import com.hapi.chargingsystem.service.ScheduleService;
+import jakarta.validation.Valid;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -48,9 +50,9 @@ public class PileController {
     /**
      * 启动/关闭充电桩
      */
-    @PutMapping("/{id}/status")
-    public Result<Boolean> updatePileStatus(@PathVariable Long id, @RequestParam Integer status) {
-        if (status == 0) {
+    @PostMapping("/{id}/status")
+    public Result<Boolean> updatePileStatus(@PathVariable Long id, @RequestBody @Valid PileStatusUpdateDTO param) {
+        if (param.getStatus() == 0) {
             // 处理故障
             scheduleService.handlePileFault(id, 1);  // 使用优先级调度策略
         } else {
@@ -85,8 +87,8 @@ public class PileController {
     /**
      * 获取充电桩队列
      */
-    @GetMapping("/{id}/queue")
-    public Result<List<PileQueueItemVO>> getPileQueue(@PathVariable Long id) {
+    @GetMapping("/queue")
+    public Result<List<PileQueueItemVO>> getPileQueue(@RequestParam Long id) {
         List<PileQueue> queue = pileQueueMapper.findQueueByPileId(id);
         List<PileQueueItemVO> result = new ArrayList<>();
 

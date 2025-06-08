@@ -1,5 +1,6 @@
 package com.hapi.chargingsystem.service;
 
+import com.hapi.chargingsystem.common.http.PageResult;
 import com.hapi.chargingsystem.domain.ChargingBill;
 import com.hapi.chargingsystem.dto.resp.ChargingBillVO;
 
@@ -21,6 +22,15 @@ public interface BillingService {
      * @return 详单列表
      */
     List<ChargingBillVO> getUserBills(Long userId);
+
+    /**
+     * 分页获取用户的充电详单列表
+     * @param userId 用户ID
+     * @param current 当前页码
+     * @param size 每页大小
+     * @return 分页详单列表
+     */
+    PageResult<ChargingBillVO> getUserBillsWithPage(Long userId, long current, long size);
 
     /**
      * 获取详单详情
