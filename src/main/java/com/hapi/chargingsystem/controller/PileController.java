@@ -7,6 +7,7 @@ import com.hapi.chargingsystem.domain.PileQueue;
 import com.hapi.chargingsystem.domain.User;
 import com.hapi.chargingsystem.dto.resp.ChargingPileVO;
 import com.hapi.chargingsystem.dto.resp.PileQueueItemVO;
+import com.hapi.chargingsystem.mapper.ChargingPileMapper;
 import com.hapi.chargingsystem.mapper.ChargingRequestMapper;
 import com.hapi.chargingsystem.mapper.PileQueueMapper;
 import com.hapi.chargingsystem.mapper.UserMapper;
@@ -21,13 +22,19 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 充电桩控制相关
+ */
 @RestController
 @RequestMapping("/api/admin/pile")
 @PreAuthorize("hasRole('ADMIN')")
-public class AdminPileController {
+public class PileController {
 
     @Autowired
     private ScheduleService scheduleService;
+
+    @Autowired
+    private ChargingPileMapper pileMapper;
 
     @Autowired
     private PileQueueMapper pileQueueMapper;
@@ -111,10 +118,24 @@ public class AdminPileController {
     /**
      * 获取所有充电桩状态
      */
-    @GetMapping("/list")
+    @GetMapping("/status")
     public Result<List<ChargingPileVO>> getAllPiles() {
-        // 此处需要实现获取所有充电桩的逻辑
-        // 为简化示例，这里省略具体实现
-        return Result.success(new ArrayList<>());
+        List<ChargingPile> piles = pileMapper.selectList(null);
+        List<ChargingPileVO> result = new ArrayList<>();
+
+        for (ChargingPile pile : piles) {
+            ChargingPileVO vo = new ChargingPileVO();
+            BeanUtils.copyProperties(pile, vo);
+            vo.setPileType(pile.getPileType());
+            vo.setStatus(pile.getStatus());
+
+            // 获取队列长度
+            Integer queueLength = pileQueueMapper.countQueueByPileId(pile.getId());
+            vo.setQueueLength(queueLength);
+
+            result.add(vo);
+        }
+
+        return Result.success(result);
     }
 }

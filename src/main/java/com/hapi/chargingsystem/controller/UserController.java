@@ -35,7 +35,11 @@ public class UserController {
     private final PasswordEncoder passwordEncoder;
 
 
-
+    /**
+     * 用户注册
+     * @param registerRequest 注册信息表单
+     * @return 注册结果
+     */
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody @Valid RegisterReqDTO registerRequest) {
         // 检查用户名是否已存在
@@ -57,6 +61,11 @@ public class UserController {
         return ResponseEntity.ok("注册成功");
     }
 
+    /**
+     * 用户登录
+     * @param loginRequest 登录请求表单
+     * @return 登录结果
+     */
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody @Valid LoginReqDTO loginRequest) {
         try {
@@ -85,6 +94,11 @@ public class UserController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * 获取用户信息
+     * @param principal ?
+     * @return 用户信息
+     */
     @GetMapping("/info")
     public ResponseEntity<?> getUserInfo(Principal principal) {
         User user = userService.getByUsername(principal.getName());
