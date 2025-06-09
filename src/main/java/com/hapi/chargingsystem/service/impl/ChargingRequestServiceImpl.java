@@ -12,6 +12,7 @@ import com.hapi.chargingsystem.dto.req.ChargeReqDTO;
 import com.hapi.chargingsystem.dto.resp.ChargeRespDTO;
 import com.hapi.chargingsystem.dto.resp.QueueStatusRespDTO;
 import com.hapi.chargingsystem.mapper.ChargingRequestMapper;
+import com.hapi.chargingsystem.mapper.PileQueueMapper;
 import com.hapi.chargingsystem.service.ChargingRequestService;
 import com.hapi.chargingsystem.service.ScheduleService;
 import com.hapi.chargingsystem.service.SystemParamService;
@@ -36,6 +37,8 @@ public class ChargingRequestServiceImpl extends ServiceImpl<ChargingRequestMappe
 
     @Autowired
     private ScheduleService scheduleService;
+    @Autowired
+    private PileQueueMapper pileQueueMapper;
 
     @Override
     @Transactional
@@ -174,28 +177,43 @@ public class ChargingRequestServiceImpl extends ServiceImpl<ChargingRequestMappe
 
         // 如果是等待中，计算前车等待数量
         if (RequestStatus.WAITING.getCode().equals(request.getStatus())) {
-            Integer waitingAhead = chargingRequestMapper.countWaitingAhead(
-                    request.getChargingMode(), request.getId());
+            int waitingAhead = 0;
+            // 检查是否已经进入充电桩队列
+            if (request.getPileId() != null) {
+                // 已进入充电桩队列，查看在队列中的位置
+                com.hapi.chargingsystem.domain.PileQueue pileQueue = pileQueueMapper.findByRequestId(request.getId());
+                if (pileQueue != null) {
+                    // 前车数量就是队列位置（position从0开始，所以position就是前车数量）
+                    waitingAhead = pileQueue.getPosition();
+                }
+            } else {
+                // 还在等候区，使用原来的逻辑
+                Integer ahead = chargingRequestMapper.countWaitingAhead(
+                        request.getChargingMode(), request.getId());
+                waitingAhead = ahead != null ? ahead : 0;
+            }
             statusVO.setWaitingCount(waitingAhead);
-
-            // 计算同类型总等待数量
-            Integer totalWaiting = chargingRequestMapper.countWaitingByMode(request.getChargingMode());
-            statusVO.setTotalWaitingCount(totalWaiting);
-
-            // 估算等待时间
-            double power = ChargingMode.FAST.getCode().equals(request.getChargingMode()) ?
-                    systemParamService.getFastChargingPower() :
-                    systemParamService.getTrickleChargingPower();
 
             // 简单估算：前面每辆车平均充电30分钟
             int estimatedTime = waitingAhead * 30;
             statusVO.setEstimatedWaitingTime(estimatedTime);
-        } else if (RequestStatus.CHARGING.getCode().equals(request.getStatus())) {
-            // 如果是充电中，前车等待数量为0
+        } else {
             statusVO.setWaitingCount(0);
-            statusVO.setTotalWaitingCount(0);
             statusVO.setEstimatedWaitingTime(0);
         }
+
+        // 计算同类型总等待数量
+        Integer totalWaiting = chargingRequestMapper.countWaitingByMode(request.getChargingMode());
+        statusVO.setTotalWaitingCount(totalWaiting);
+
+        // 估算等待时间
+        double power = ChargingMode.FAST.getCode().equals(request.getChargingMode()) ?
+                systemParamService.getFastChargingPower() :
+                systemParamService.getTrickleChargingPower();
+
+        // 简单估算：前面每辆车平均充电30分钟
+        int estimatedTime = totalWaiting * 30;
+        statusVO.setEstimatedWaitingTime(estimatedTime);
 
         return statusVO;
     }
@@ -285,9 +303,22 @@ public class ChargingRequestServiceImpl extends ServiceImpl<ChargingRequestMappe
 
         // 如果是等待中，计算前车等待数量
         if (RequestStatus.WAITING.getCode().equals(request.getStatus())) {
-            Integer waitingAhead = chargingRequestMapper.countWaitingAhead(
-                    request.getChargingMode(), request.getId());
-            vo.setWaitingCount(waitingAhead);
+            // 检查是否已经进入充电桩队列
+            if (request.getPileId() != null) {
+                // 已进入充电桩队列，查看在队列中的位置
+                com.hapi.chargingsystem.domain.PileQueue pileQueue = pileQueueMapper.findByRequestId(request.getId());
+                if (pileQueue != null) {
+                    // 前车数量就是队列位置（position从0开始，所以position就是前车数量）
+                    vo.setWaitingCount(pileQueue.getPosition());
+                } else {
+                    vo.setWaitingCount(0);
+                }
+            } else {
+                // 还在等候区，使用原来的逻辑
+                Integer waitingAhead = chargingRequestMapper.countWaitingAhead(
+                        request.getChargingMode(), request.getId());
+                vo.setWaitingCount(waitingAhead);
+            }
         } else {
             vo.setWaitingCount(0);
         }

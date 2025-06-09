@@ -21,7 +21,7 @@ public interface ChargingRequestMapper extends BaseMapper<ChargingRequest> {
     Integer countWaitingByMode(@Param("chargingMode") Integer chargingMode);
 
     @Select("SELECT COUNT(*) FROM charging_request " +
-            "WHERE charging_mode = #{chargingMode} AND status = 1 AND " +
+            "WHERE charging_mode = #{chargingMode} AND status IN (1, 2) AND " +
             "queue_start_time < (SELECT queue_start_time FROM charging_request WHERE id = #{requestId})")
     Integer countWaitingAhead(@Param("chargingMode") Integer chargingMode, @Param("requestId") Long requestId);
 
