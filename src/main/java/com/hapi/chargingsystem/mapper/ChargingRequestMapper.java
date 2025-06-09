@@ -12,7 +12,7 @@ import java.util.List;
 @Mapper
 public interface ChargingRequestMapper extends BaseMapper<ChargingRequest> {
 
-    @Select("SELECT MAX(SUBSTRING(queue_number, 2)) AS max_number FROM charging_request " +
+    @Select("SELECT MAX(CAST(SUBSTRING(queue_number, 2) AS UNSIGNED)) AS max_number FROM charging_request " +
             "WHERE charging_mode = #{chargingMode} AND queue_number LIKE #{prefix}")
     Integer getMaxQueueNumber(@Param("chargingMode") Integer chargingMode, @Param("prefix") String prefix);
 
@@ -29,4 +29,8 @@ public interface ChargingRequestMapper extends BaseMapper<ChargingRequest> {
             "WHERE status = 1 AND charging_mode = #{chargingMode} " +
             "ORDER BY queue_start_time ASC")
     List<ChargingRequest> getWaitingRequestsByMode(@Param("chargingMode") Integer chargingMode);
+
+    @Select("SELECT MAX(queue_number) FROM charging_request " +
+            "WHERE charging_mode = #{chargingMode}")
+    Integer getMaxQueueNumberByMode(@Param("chargingMode") Integer chargingMode);
 }

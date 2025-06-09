@@ -38,4 +38,11 @@ public interface BillingService {
      * @return 详单详情
      */
     ChargingBillVO getBillDetail(Long billId);
+
+    /**
+     * 获取已充电量
+     * @param requestId 充电请求ID
+     * @return 已充电量
+     */
+    Double getChargedAmount(Long requestId);
 }

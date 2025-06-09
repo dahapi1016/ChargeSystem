@@ -271,4 +271,13 @@ public class BillingServiceImpl implements BillingService {
 
         return vo;
     }
+
+    @Override
+    public Double getChargedAmount(Long requestId) {
+        ChargingBill bill = billMapper.findByRequestId(requestId);
+        if (bill == null) {
+            return 0.0;
+        }
+        return bill.getChargingAmount().doubleValue();
+    }
 }
