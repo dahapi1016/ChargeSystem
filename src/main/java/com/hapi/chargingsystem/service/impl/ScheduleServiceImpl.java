@@ -116,10 +116,19 @@ public class ScheduleServiceImpl implements ScheduleService {
 
         // 4. 依次分配请求到有空位的充电桩
         for (ChargingRequest request : waitingRequests) {
+            // 重新检查请求状态，确保仍然在等候区中
+            ChargingRequest currentRequest = requestMapper.selectById(request.getId());
+            if (currentRequest == null ||
+                !RequestStatus.WAITING.getCode().equals(currentRequest.getStatus()) ||
+                currentRequest.getPileId() != null) {
+                // 请求状态已变化或已分配到充电桩，跳过
+                continue;
+            }
+
             // 找出同类型且有空位的充电桩
             List<ChargingPile> availablePiles = activePiles.stream()
                     .filter(p -> p.getPileType().equals(
-                            request.getChargingMode().equals(ChargingMode.FAST.getCode()) ?
+                            currentRequest.getChargingMode().equals(ChargingMode.FAST.getCode()) ?
                                     PileType.FAST.getCode() : PileType.TRICKLE.getCode()))
                     .filter(p -> pileQueues.get(p.getId()).size() < queueLen)
                     .collect(Collectors.toList());
@@ -139,10 +148,10 @@ public class ScheduleServiceImpl implements ScheduleService {
             }
 
             // 使用调度策略选择最佳充电桩
-            Long bestPileId = dispatchStrategy.selectBestPile(request, availablePiles, pileQueueMap);
+            Long bestPileId = dispatchStrategy.selectBestPile(currentRequest, availablePiles, pileQueueMap);
 
             if (bestPileId != null) {
-                assignRequestToPile(request, bestPileId);
+                assignRequestToPile(currentRequest, bestPileId);
                 // 更新本地队列缓存
                 pileQueues.get(bestPileId).add(new PileQueue()); // 只需保证size+1即可
             }
@@ -153,6 +162,19 @@ public class ScheduleServiceImpl implements ScheduleService {
      * 将请求分配到充电桩队列
      */
     private void assignRequestToPile(ChargingRequest request, Long pileId) {
+        // 检查请求是否已经在队列中
+        PileQueue existingQueue = pileQueueMapper.findByRequestId(request.getId());
+        if (existingQueue != null) {
+            logger.warn("请求 {} 已经在充电桩队列中，跳过分配", request.getId());
+            return;
+        }
+
+        // 检查请求是否已经分配了充电桩
+        if (request.getPileId() != null) {
+            logger.warn("请求 {} 已经分配了充电桩 {}，跳过分配", request.getId(), request.getPileId());
+            return;
+        }
+
         // 获取当前充电桩队列
         List<PileQueue> pileQueue = pileQueueMapper.findQueueByPileId(pileId);
 
@@ -287,6 +309,8 @@ public class ScheduleServiceImpl implements ScheduleService {
         List<PileQueue> pileQueue = pileQueueMapper.findQueueByPileId(pileId);
 
         if (pileQueue.isEmpty()) {
+            // 即使故障充电桩没有队列，也要触发调度以重新分配等候区车辆
+            triggerSchedule();
             return;
         }
 
@@ -309,7 +333,7 @@ public class ScheduleServiceImpl implements ScheduleService {
                 }
 
                 // 计算剩余需要充电的电量
-                Double remainingAmount = request.getRequestAmount().doubleValue() - chargedAmount;
+                double remainingAmount = request.getRequestAmount().doubleValue() - chargedAmount;
 
                 // 更新原请求状态为已完成（部分充电）
                 LambdaUpdateWrapper<ChargingRequest> requestUpdateWrapper = new LambdaUpdateWrapper<>();
@@ -339,9 +363,6 @@ public class ScheduleServiceImpl implements ScheduleService {
 
                     logger.info("为故障充电桩上的请求 {} 创建新请求 {}，剩余电量 {}",
                             request.getId(), newRequest.getId(), remainingAmount);
-
-                    // 立即为新请求尝试分配充电桩
-                    tryAssignNewRequestToPile(newRequest);
                 }
             }
 
@@ -352,44 +373,50 @@ public class ScheduleServiceImpl implements ScheduleService {
         // 暂停等候区叫号服务
         waitingAreaPaused = true;
 
-        // 获取故障队列中的其他请求
-        List<PileQueue> waitingItems = pileQueue.stream()
-                .filter(item -> item.getPosition() > 0)
-                .toList();
+        try {
+            // 获取故障队列中的其他请求
+            List<PileQueue> waitingItems = pileQueue.stream()
+                    .filter(item -> item.getPosition() > 0)
+                    .toList();
 
-        // 获取故障队列中的请求ID列表
-        List<Long> faultQueueRequestIds = waitingItems.stream()
-                .map(PileQueue::getRequestId)
-                .collect(Collectors.toList());
+            // 获取故障队列中的请求ID列表
+            List<Long> faultQueueRequestIds = waitingItems.stream()
+                    .map(PileQueue::getRequestId)
+                    .collect(Collectors.toList());
 
-        // 删除故障队列中的所有项
-        for (PileQueue item : waitingItems) {
-            pileQueueMapper.deleteById(item.getId());
+            // 删除故障队列中的所有项
+            for (PileQueue item : waitingItems) {
+                pileQueueMapper.deleteById(item.getId());
+            }
+
+            // 更新这些请求的状态为等待中
+            for (Long requestId : faultQueueRequestIds) {
+                LambdaUpdateWrapper<ChargingRequest> requestUpdateWrapper = new LambdaUpdateWrapper<>();
+                requestUpdateWrapper.eq(ChargingRequest::getId, requestId)
+                        .set(ChargingRequest::getStatus, RequestStatus.WAITING.getCode())
+                        .set(ChargingRequest::getPileId, null)
+                        .set(ChargingRequest::getQueuePosition, null)
+                        .set(ChargingRequest::getUpdateTime, LocalDateTime.now());
+
+                requestMapper.update(null, requestUpdateWrapper);
+            }
+
+            // 根据策略类型进行调度
+            if (strategyType == 1) {
+                // 优先级调度：先处理故障队列中的请求
+                handlePriorityDispatch(pile.getPileType(), faultQueueRequestIds);
+            } else {
+                // 时间顺序调度：重新调度所有同类型充电桩的等待请求
+                handleTimeOrderDispatch(pile.getPileType());
+            }
+
+        } finally {
+            // 恢复等候区叫号服务
+            waitingAreaPaused = false;
         }
 
-        // 更新这些请求的状态为等待中
-        for (Long requestId : faultQueueRequestIds) {
-            LambdaUpdateWrapper<ChargingRequest> requestUpdateWrapper = new LambdaUpdateWrapper<>();
-            requestUpdateWrapper.eq(ChargingRequest::getId, requestId)
-                    .set(ChargingRequest::getStatus, RequestStatus.WAITING.getCode())
-                    .set(ChargingRequest::getPileId, null)
-                    .set(ChargingRequest::getQueuePosition, null)
-                    .set(ChargingRequest::getUpdateTime, LocalDateTime.now());
-
-            requestMapper.update(null, requestUpdateWrapper);
-        }
-
-        // 根据策略类型进行调度
-        if (strategyType == 1) {
-            // 优先级调度
-            handlePriorityDispatch(pile.getPileType(), faultQueueRequestIds);
-        } else {
-            // 时间顺序调度
-            handleTimeOrderDispatch(pile.getPileType());
-        }
-
-        // 恢复等候区叫号服务
-        waitingAreaPaused = false;
+        // 故障处理完成后，触发完整调度以处理等候区的车辆
+        triggerSchedule();
     }
 
     /**
@@ -404,6 +431,9 @@ public class ScheduleServiceImpl implements ScheduleService {
             return;
         }
 
+        // 获取队列长度限制
+        int queueLen = systemParamService.getChargingQueueLen();
+
         // 获取故障队列中的请求
         List<ChargingRequest> faultRequests = new ArrayList<>();
         for (Long requestId : faultQueueRequestIds) {
@@ -417,10 +447,25 @@ public class ScheduleServiceImpl implements ScheduleService {
         faultRequests.sort(Comparator.comparing(ChargingRequest::getQueueNumber));
 
         // 为每个故障请求重新分配充电桩
+        int assignedCount = 0;
         for (ChargingRequest request : faultRequests) {
+            // 找出有空位的充电桩
+            List<ChargingPile> availablePiles = samePiles.stream()
+                    .filter(pile -> {
+                        List<PileQueue> queue = pileQueueMapper.findQueueByPileId(pile.getId());
+                        return queue.size() < queueLen;
+                    })
+                    .collect(Collectors.toList());
+
+            if (availablePiles.isEmpty()) {
+                // 没有可用的充电桩，请求保持在等候区
+                logger.info("故障请求 {} 无法分配到充电桩，保持在等候区", request.getId());
+                continue;
+            }
+
             // 构建充电桩队列映射
             Map<Long, List<ChargingRequest>> pileQueueMap = new HashMap<>();
-            for (ChargingPile availablePile : samePiles) {
+            for (ChargingPile availablePile : availablePiles) {
                 List<PileQueue> queue = pileQueueMapper.findQueueByPileId(availablePile.getId());
                 List<ChargingRequest> queueRequests = queue.stream()
                         .map(q -> requestMapper.selectById(q.getRequestId()))
@@ -430,15 +475,19 @@ public class ScheduleServiceImpl implements ScheduleService {
             }
 
             // 使用调度策略选择最佳充电桩
-            Long bestPileId = dispatchStrategy.selectBestPile(request, samePiles, pileQueueMap);
+            Long bestPileId = dispatchStrategy.selectBestPile(request, availablePiles, pileQueueMap);
 
             if (bestPileId != null) {
                 // 将请求分配到选定的充电桩队列
                 assignRequestToPile(request, bestPileId);
+                assignedCount++;
             } else {
                 logger.warn("无法为故障请求 {} 找到合适的充电桩", request.getId());
             }
         }
+
+        logger.info("优先级调度完成，已处理 {} 个故障队列请求，成功分配 {} 个，剩余 {} 个在等候区",
+                faultRequests.size(), assignedCount, faultRequests.size() - assignedCount);
     }
 
     /**
@@ -452,6 +501,9 @@ public class ScheduleServiceImpl implements ScheduleService {
             logger.warn("没有可用的同类型充电桩进行故障调度");
             return;
         }
+
+        // 获取队列长度限制
+        int queueLen = systemParamService.getChargingQueueLen();
 
         // 获取所有同类型充电桩中尚未充电的车辆
         List<ChargingRequest> allWaitingRequests = new ArrayList<>();
@@ -485,11 +537,28 @@ public class ScheduleServiceImpl implements ScheduleService {
         // 按照排队号码排序
         allWaitingRequests.sort(Comparator.comparing(ChargingRequest::getQueueNumber));
 
+        logger.info("时间顺序调度开始，需要重新分配 {} 个等待请求", allWaitingRequests.size());
+
         // 为每个请求重新分配充电桩
+        int successCount = 0;
         for (ChargingRequest request : allWaitingRequests) {
+            // 找出有空位的充电桩
+            List<ChargingPile> availablePiles = samePiles.stream()
+                    .filter(pile -> {
+                        List<PileQueue> queue = pileQueueMapper.findQueueByPileId(pile.getId());
+                        return queue.size() < queueLen;
+                    })
+                    .collect(Collectors.toList());
+
+            if (availablePiles.isEmpty()) {
+                // 没有可用的充电桩，请求保持在等候区
+                logger.info("请求 {} 无法分配到充电桩，保持在等候区", request.getId());
+                continue;
+            }
+
             // 构建充电桩队列映射
             Map<Long, List<ChargingRequest>> pileQueueMap = new HashMap<>();
-            for (ChargingPile availablePile : samePiles) {
+            for (ChargingPile availablePile : availablePiles) {
                 List<PileQueue> queue = pileQueueMapper.findQueueByPileId(availablePile.getId());
                 List<ChargingRequest> queueRequests = queue.stream()
                         .map(q -> requestMapper.selectById(q.getRequestId()))
@@ -499,15 +568,19 @@ public class ScheduleServiceImpl implements ScheduleService {
             }
 
             // 使用调度策略选择最佳充电桩
-            Long bestPileId = dispatchStrategy.selectBestPile(request, samePiles, pileQueueMap);
+            Long bestPileId = dispatchStrategy.selectBestPile(request, availablePiles, pileQueueMap);
 
             if (bestPileId != null) {
                 // 将请求分配到选定的充电桩队列
                 assignRequestToPile(request, bestPileId);
+                successCount++;
             } else {
                 logger.warn("无法为请求 {} 找到合适的充电桩", request.getId());
             }
         }
+
+        logger.info("时间顺序调度完成，成功重新分配 {} 个请求，剩余 {} 个在等候区",
+                successCount, allWaitingRequests.size() - successCount);
     }
 
     @Override
@@ -527,6 +600,8 @@ public class ScheduleServiceImpl implements ScheduleService {
 
         pileMapper.update(null, updateWrapper);
 
+        logger.info("充电桩 {} 已恢复正常状态", pileId);
+
         // 获取同类型的充电桩
         List<ChargingPile> samePiles = pileMapper.findActivePilesByType(pile.getPileType());
 
@@ -542,20 +617,28 @@ public class ScheduleServiceImpl implements ScheduleService {
             }
         }
 
-        // 如果有车辆排队，进行重新调度
-        if (hasWaitingCars) {
+        // 检查等候区是否有同类型的等待车辆
+        Integer chargingMode = pile.getPileType().equals(PileType.FAST.getCode()) ?
+                ChargingMode.FAST.getCode() : ChargingMode.TRICKLE.getCode();
+        List<ChargingRequest> waitingRequests = requestMapper.getWaitingRequestsByMode(chargingMode);
+        boolean hasWaitingInArea = !waitingRequests.isEmpty();
+
+        // 如果有车辆排队或等候区有车辆，进行重新调度以平衡负载
+        if (hasWaitingCars || hasWaitingInArea) {
             // 暂停等候区叫号服务
             waitingAreaPaused = true;
 
-            // 使用时间顺序调度策略
-            handleTimeOrderDispatch(pile.getPileType());
-
-            // 恢复等候区叫号服务
-            waitingAreaPaused = false;
-        } else {
-            // 触发正常调度
-            triggerSchedule();
+            try {
+                // 使用时间顺序调度策略重新平衡所有同类型充电桩的队列
+                handleTimeOrderDispatch(pile.getPileType());
+            } finally {
+                // 恢复等候区叫号服务
+                waitingAreaPaused = false;
+            }
         }
+
+        // 无论如何都要触发正常调度，确保等候区的车辆能够被分配
+        triggerSchedule();
     }
 
     @Override

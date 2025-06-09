@@ -26,7 +26,7 @@ public interface ChargingRequestMapper extends BaseMapper<ChargingRequest> {
     Integer countWaitingAhead(@Param("chargingMode") Integer chargingMode, @Param("requestId") Long requestId);
 
     @Select("SELECT * FROM charging_request " +
-            "WHERE status = 1 AND charging_mode = #{chargingMode} " +
+            "WHERE status = 1 AND charging_mode = #{chargingMode} AND pile_id IS NULL " +
             "ORDER BY queue_start_time ASC")
     List<ChargingRequest> getWaitingRequestsByMode(@Param("chargingMode") Integer chargingMode);
 
